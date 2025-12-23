@@ -1,0 +1,10 @@
+QUICKEST FIX - Add this to your Spring Boot login controller:
+
+@PostMapping("/login")
+@CrossOrigin(origins = "*")  // ADD THIS LINE
+public ResponseEntity<User> login(@RequestBody LoginRequest request) {
+    // your existing code
+}
+
+Then restart your Spring Boot server.
+
