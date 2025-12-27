@@ -7,6 +7,13 @@ import 'dart:io';
 import 'home_screen.dart';
 import 'settings_screen.dart';
 import 'profile_screen.dart';
+import 'dart:html' as html;
+import 'dart:convert';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
+import 'package:http_parser/http_parser.dart';
 
 /// Recording Screen
 /// 
@@ -19,6 +26,31 @@ class RecordingScreen extends StatefulWidget {
 }
 
 class _RecordingScreenState extends State<RecordingScreen> {
+
+Future<void> uploadAudioFileWeb(String filePath) async {
+  final file = html.File(await File(filePath).readAsBytes(), 'recording.m4a');
+
+  final formData = html.FormData();
+  formData.appendBlob('file', file, 'recording.m4a');
+
+  final request = html.HttpRequest();
+  request.open('POST', 'http://localhost:8085/audio/upload');
+  request.send(formData);
+
+  request.onLoad.listen((event) {
+    if (request.status == 200) {
+      print('✅ Audio uploaded successfully');
+    } else {
+      print('❌ Upload failed: ${request.status}');
+    }
+  });
+
+  request.onError.listen((event) {
+    print('❌ Upload error');
+  });
+}
+
+
   // Recording state: 'idle', 'recording', 'paused', 'processing'
   String _recordingState = 'idle';
   
@@ -162,64 +194,174 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   /// Stop recording
-  Future<void> _stopRecording() async {
-    try {
-      _stopTimer();
+  // Future<void> _stopRecording() async {
+  //   try {
+  //     _stopTimer();
       
-      if (_recordingState == 'recording') {
-        // Save accumulated duration
-        final now = DateTime.now();
-        _accumulatedDuration += now.difference(_recordingStartTime!);
-      }
+  //     if (_recordingState == 'recording') {
+  //       // Save accumulated duration
+  //       final now = DateTime.now();
+  //       _accumulatedDuration += now.difference(_recordingStartTime!);
+  //     }
       
-      final path = await _audioRecorder.stop();
+  //     final path = await _audioRecorder.stop();
       
-      if (path != null && path.isNotEmpty) {
-        _recordingPath = path;
-        // Show processing screen
-        setState(() {
-          _recordingState = 'processing';
-        });
+  //     if (path != null && path.isNotEmpty) {
+  //       _recordingPath = path;
+  //       // Show processing screen
+  //       setState(() {
+  //         _recordingState = 'processing';
+  //       });
         
-        // TODO: Here you can upload the file to your Spring Boot backend
-        // Example:
-        // final apiService = ApiService();
-        // await apiService.uploadAudio(_recordingPath!);
+  //       await uploadAudioFile(_recordingPath!);
+  //       // Example:
+  //       // final apiService = ApiService();
+  //       // await apiService.uploadAudio(_recordingPath!);
         
-        // After 5 seconds, navigate to home screen
-        Future.delayed(const Duration(seconds: 5), () {
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const HomeScreen(),
-              ),
-            );
-          }
-        });
+  //       // After 5 seconds, navigate to home screen
+  //       Future.delayed(const Duration(seconds: 5), () {
+  //         if (mounted) {
+  //           Navigator.of(context).pushReplacement(
+  //             MaterialPageRoute(
+  //               builder: (context) => const HomeScreen(),
+  //             ),
+  //           );
+  //         }
+  //       });
+  //     } else {
+  //       // If recording was cancelled or failed
+  //       setState(() {
+  //         _recordingState = 'idle';
+  //         _recordingDuration = Duration.zero;
+  //         _accumulatedDuration = Duration.zero;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Error stopping recording: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //     setState(() {
+  //       _recordingState = 'idle';
+  //       _recordingDuration = Duration.zero;
+  //       _accumulatedDuration = Duration.zero;
+  //     });
+  //   }
+  // }
+Future<void> _stopRecording() async {
+  try {
+    _stopTimer();
+
+    if (_recordingState == 'recording') {
+      // Save accumulated duration
+      final now = DateTime.now();
+      _accumulatedDuration += now.difference(_recordingStartTime!);
+    }
+
+    final path = await _audioRecorder.stop();
+
+    if (path != null && path.isNotEmpty) {
+      _recordingPath = path;
+
+      // Show processing screen
+      setState(() {
+        _recordingState = 'processing';
+      });
+
+      // Upload the file depending on the platform
+      if (kIsWeb) {
+        await _uploadAudioFileWeb(_recordingPath!);
       } else {
-        // If recording was cancelled or failed
-        setState(() {
-          _recordingState = 'idle';
-          _recordingDuration = Duration.zero;
-          _accumulatedDuration = Duration.zero;
-        });
+        await _uploadAudioFileMobile(_recordingPath!);
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error stopping recording: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+
+      // Navigate to home screen after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(),
+            ),
+          );
+        }
+      });
+    } else {
+      // If recording was cancelled or failed
       setState(() {
         _recordingState = 'idle';
         _recordingDuration = Duration.zero;
         _accumulatedDuration = Duration.zero;
       });
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error stopping recording: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    setState(() {
+      _recordingState = 'idle';
+      _recordingDuration = Duration.zero;
+      _accumulatedDuration = Duration.zero;
+    });
   }
+}
+
+// Mobile upload using http.MultipartRequest
+Future<void> _uploadAudioFileMobile(String filePath) async {
+  final uri = Uri.parse('http://localhost:8085/audio/upload');
+  final request = http.MultipartRequest('POST', uri);
+
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      'file', // must match @RequestPart("file") in Spring Boot
+      filePath,
+    ),
+  );
+
+  try {
+    final response = await request.send();
+    if (response.statusCode == 200) {
+      print('✅ Audio uploaded successfully (Mobile)');
+    } else {
+      print('❌ Upload failed (Mobile): ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Upload error (Mobile): $e');
+  }
+}
+
+// Web upload using FormData
+Future<void> _uploadAudioFileWeb(String filePath) async {
+  final bytes = await File(filePath).readAsBytes(); // Get bytes
+  final blob = html.Blob([bytes]);
+  final formData = html.FormData();
+  formData.appendBlob('file', blob, 'recording.m4a');
+
+  final request = html.HttpRequest();
+  request.open('POST', 'http://localhost:8085/audio/upload');
+  request.send(formData);
+
+  request.onLoad.listen((event) {
+    if (request.status == 200) {
+      print('✅ Audio uploaded successfully (Web)');
+    } else {
+      print('❌ Upload failed (Web): ${request.status}');
+    }
+  });
+
+  request.onError.listen((event) {
+    print('❌ Upload error (Web)');
+  });
+}
+
 
   /// Handle pause/resume recording
   Future<void> _handlePause() async {
