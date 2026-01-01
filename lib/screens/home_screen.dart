@@ -23,50 +23,39 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   
   // Sample audio items (will be replaced with real data from backend)
-  final List<AudioItem> _allAudios = [
-    AudioItem(
-      id: '1',
-      title: 'Meeting Notes',
-      duration: const Duration(minutes: 5, seconds: 32),
-      date: DateTime(2024, 1, 15),
-      type: 'cleaned',
-    ),
-    AudioItem(
-      id: '2',
-      title: 'Voice Memo',
-      duration: const Duration(minutes: 2, seconds: 15),
-      date: DateTime(2024, 1, 14),
-      type: 'original',
-    ),
-    AudioItem(
-      id: '3',
-      title: 'Interview Recording',
-      duration: const Duration(minutes: 12, seconds: 45),
-      date: DateTime(2024, 1, 13),
-      type: 'cleaned',
-    ),
-    AudioItem(
-      id: '4',
-      title: 'Quick Note',
-      duration: const Duration(minutes: 1, seconds: 8),
-      date: DateTime(2024, 1, 12),
-      type: 'original',
-    ),
-    AudioItem(
-      id: '5',
-      title: 'Lecture Recording',
-      duration: const Duration(minutes: 45, seconds: 30),
-      date: DateTime(2024, 1, 10),
-      type: 'cleaned',
-    ),
-  ];
+  List<AudioItem> _allAudios = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAudios();
+  }
+
+  Future<void> _loadAudios() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _apiService.fetchAudios();
+      setState(() {
+        _allAudios = data.map((json) => AudioItem.fromJson(json)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading audios: $e')),
+        );
+      }
+    }
+  }
 
   /// Get filtered audio items based on selected filter and search query
   List<AudioItem> get _filteredAudios {
     return _allAudios.where((audio) {
-      final matchesFilter = _selectedFilter == 'all' || audio.type == _selectedFilter;
       final matchesSearch = audio.title.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesFilter && matchesSearch;
+      final matchesFilter = _selectedFilter == 'All' || audio.type.toLowerCase() == _selectedFilter.toLowerCase();
+      return matchesSearch && matchesFilter;
     }).toList();
   }
 

@@ -16,6 +16,26 @@ class AudioItem {
     required this.type,
   });
 
+  factory AudioItem.fromJson(Map<String, dynamic> json) {
+    return AudioItem(
+      id: json['id']?.toString() ?? '',
+      title: json['title'] ?? 'Untitled',
+      duration: Duration(seconds: json['duration'] is int ? json['duration'] : 0),
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      type: json['type'] ?? 'original',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'duration': duration.inSeconds,
+      'date': date.toIso8601String(),
+      'type': type,
+    };
+  }
+
   /// Format duration as MM:SS
   String get formattedDuration {
     final minutes = duration.inMinutes;
