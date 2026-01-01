@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login/login_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 /// Main entry point of the Flutter application
 /// 
@@ -50,8 +51,8 @@ class MyApp extends StatelessWidget {
         ),
       ),
       
-      // Login screen - first screen shown when app starts
-      home: const LoginScreen(),
+      // Entry point - Now shows OnboardingScreen first
+      home: const OnboardingScreen(),
     );
   }
 }

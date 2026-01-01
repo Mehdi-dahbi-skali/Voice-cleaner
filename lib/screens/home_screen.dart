@@ -3,6 +3,7 @@ import '../models/audio_item.dart';
 import 'recording_screen.dart';
 import 'settings_screen.dart';
 import 'profile_screen.dart';
+import 'audio_player_screen.dart';
 
 /// Home Screen
 /// 
@@ -17,6 +18,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Selected filter option: 'all', 'cleaned', 'original'
   String _selectedFilter = 'all';
+  
+  // Search query
+  String _searchQuery = '';
   
   // Sample audio items (will be replaced with real data from backend)
   final List<AudioItem> _allAudios = [
@@ -57,12 +61,13 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  /// Get filtered audio items based on selected filter
+  /// Get filtered audio items based on selected filter and search query
   List<AudioItem> get _filteredAudios {
-    if (_selectedFilter == 'all') {
-      return _allAudios;
-    }
-    return _allAudios.where((audio) => audio.type == _selectedFilter).toList();
+    return _allAudios.where((audio) {
+      final matchesFilter = _selectedFilter == 'all' || audio.type == _selectedFilter;
+      final matchesSearch = audio.title.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
   }
 
   /// Handle filter selection
@@ -72,33 +77,26 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Handle play button press
+  /// Handle play button press -> Navigate to Detailed Player
   void _handlePlay(AudioItem audio) {
-    // TODO: Implement play functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Playing: ${audio.title}'),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AudioPlayerScreen(audio: audio),
       ),
     );
   }
 
   /// Handle share button press
   void _handleShare(AudioItem audio) {
-    // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sharing: ${audio.title}'),
-      ),
+      SnackBar(content: Text('Sharing: ${audio.title}')),
     );
   }
 
   /// Handle delete button press
   void _handleDelete(AudioItem audio) {
-    // TODO: Implement delete functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Deleting: ${audio.title}'),
-      ),
+      SnackBar(content: Text('Deleting: ${audio.title}')),
     );
   }
 
@@ -107,16 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const RecordingScreen(),
-      ),
-    );
-  }
-
-  /// Handle view more button press
-  void _handleViewMore() {
-    // TODO: Navigate to full list screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('View more feature coming soon'),
       ),
     );
   }
@@ -132,28 +120,16 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  // Mic logo
-                  Icon(
-                    Icons.mic,
-                    size: 32,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 12),
-                  // Title
+                  Icon(Icons.mic, size: 32, color: Colors.white),
+                  SizedBox(width: 12),
                   Text(
                     'Voice Recorder',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    style: TextStyle(
                       color: Colors.white,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -161,40 +137,52 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Filter options
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            // Search Bar (Figma PDF 5)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Search recordings...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.grey.withOpacity(0.1),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+
+            // Filter options (Chips style like Figma)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildFilterButton('Cleaned', 'cleaned'),
-                  _buildFilterButton('All', 'all'),
-                  _buildFilterButton('Original', 'original'),
+                  _buildFilterChip('All', 'all'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Original', 'original'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Cleaned', 'cleaned'),
                 ],
               ),
             ),
 
+            const SizedBox(height: 16),
+
             // Audio list
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _filteredAudios.length + 1, // +1 for "View More" button
-                itemBuilder: (context, index) {
-                  if (index == _filteredAudios.length) {
-                    // View More button
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: TextButton(
-                        onPressed: _handleViewMore,
-                        child: const Text('View More'),
-                      ),
-                    );
-                  }
-
-                  final audio = _filteredAudios[index];
-                  return _buildAudioItem(audio);
-                },
-              ),
+              child: _filteredAudios.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _filteredAudios.length,
+                      itemBuilder: (context, index) {
+                        final audio = _filteredAudios[index];
+                        return _buildAudioItem(audio);
+                      },
+                    ),
             ),
 
             // "Your voice. Crystal clear." section
@@ -202,32 +190,19 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Text(
+                  const Text(
                     'Your voice. Crystal clear.',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: _handleStartRecording,
                     icon: const Icon(Icons.mic, size: 24),
-                    label: const Text(
-                      'Start Recording',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    label: const Text('Start Recording'),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],
@@ -236,199 +211,97 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  /// Build filter button
-  Widget _buildFilterButton(String label, String filter) {
+  Widget _buildFilterChip(String label, String filter) {
     final isSelected = _selectedFilter == filter;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton(
-          onPressed: () => _selectFilter(filter),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.grey[200],
-            foregroundColor: isSelected
-                ? Colors.white
-                : Colors.black87,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: isSelected ? 2 : 0,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (bool selected) {
+        if (selected) _selectFilter(filter);
+      },
+      selectedColor: Theme.of(context).colorScheme.primary,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
   }
 
-  /// Build audio item card
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 64, color: Colors.grey.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          const Text('No recordings found', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAudioItem(AudioItem audio) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.graphic_eq, color: Colors.blue),
+        ),
+        title: Text(audio.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('${audio.formattedDate} • ${audio.formattedDuration}'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Title
-            Text(
-              audio.title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            IconButton(
+              icon: const Icon(Icons.share_outlined, size: 20),
+              onPressed: () => _handleShare(audio),
             ),
-            const SizedBox(height: 8),
-            
-            // Duration and Date row
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  audio.formattedDuration,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  audio.formattedDate,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Action buttons row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Delete button
-                IconButton(
-                  onPressed: () => _handleDelete(audio),
-                  icon: const Icon(Icons.delete_outline),
-                  color: Colors.red,
-                  tooltip: 'Delete',
-                ),
-                // Share button
-                IconButton(
-                  onPressed: () => _handleShare(audio),
-                  icon: const Icon(Icons.share_outlined),
-                  color: Colors.blue,
-                  tooltip: 'Share',
-                ),
-                // Play button
-                IconButton(
-                  onPressed: () => _handlePlay(audio),
-                  icon: const Icon(Icons.play_arrow),
-                  color: Theme.of(context).colorScheme.primary,
-                  iconSize: 32,
-                  tooltip: 'Play',
-                ),
-              ],
+            IconButton(
+              icon: Icon(Icons.play_circle_fill, color: Theme.of(context).colorScheme.primary, size: 32),
+              onPressed: () => _handlePlay(audio),
             ),
           ],
         ),
+        onTap: () => _handlePlay(audio),
       ),
     );
   }
 
-  /// Build bottom navigation bar
   Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 0, // Home is selected
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic),
-            label: 'Record',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on home
-              break;
-            case 1:
-              // Navigate to recording screen
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const RecordingScreen(),
-                ),
-              );
-              break;
-            case 2:
-              // Navigate to settings screen
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-              break;
-            case 3:
-              // Navigate to profile screen
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ProfileScreen(),
-                ),
-              );
-              break;
-          }
-        },
-      ),
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      currentIndex: 0,
+      selectedItemColor: Theme.of(context).colorScheme.primary,
+      unselectedItemColor: Colors.grey,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.mic), label: 'Record'),
+        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      ],
+      onTap: (index) {
+        if (index == 0) return;
+        Widget nextScreen;
+        switch (index) {
+          case 1: nextScreen = const RecordingScreen(); break;
+          case 2: nextScreen = const SettingsScreen(); break;
+          case 3: nextScreen = const ProfileScreen(); break;
+          default: return;
+        }
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => nextScreen));
+      },
     );
   }
 }
+

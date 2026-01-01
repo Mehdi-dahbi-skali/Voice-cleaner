@@ -31,6 +31,18 @@ dependencies:
   # Path provider for file storage
   path_provider: ^2.1.1
 
+  # Audio playback
+  audioplayers: ^5.2.1
+  
+  # Visualisation waveform
+  audio_waveforms: ^1.0.5
+  
+  # Partage
+  share_plus: ^7.2.1
+
+  # Date formatting
+  intl: ^0.19.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
